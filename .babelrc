@@ -1,0 +1,24 @@
+{
+  "presets": [
+    [
+      "@babel/preset-env",
+      {
+        "targets": {
+          "node": "current"
+        }
+      }
+    ]
+  ],
+  "plugins": [
+    "@babel/plugin-transform-runtime",
+    "@babel/plugin-transform-template-literals",
+    "@babel/plugin-transform-destructuring",
+    "@babel/plugin-transform-spread",
+    "@babel/plugin-transform-shorthand-properties",
+    "@babel/plugin-proposal-object-rest-spread",
+    "@babel/plugin-proposal-class-properties",
+    "@babel/plugin-transform-for-of",
+    "@babel/plugin-syntax-dynamic-import",
+    "@babel/plugin-transform-async-to-generator"
+  ]
+}

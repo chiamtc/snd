@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+</body>
+<script>
+    fetch('https://www.youtube.com', {
+        method: 'GET',
+        mode: 'no-cors', headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+        .then(function (response) {
+            console.log(response.json())
+            return response.json();
+        })
+        .then(function (myJson) {
+            console.log(JSON.stringify(myJson));
+        });
+</script>
+</html>
