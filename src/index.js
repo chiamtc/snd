@@ -89,7 +89,7 @@ const findTitle = (bodyStr) => {
 let rgs = [];
 let obj;
 let finalDst = ''
-findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5beb3cc5574fe').then((res) => {
+findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0').then((res) => {
     const pm = new Promise((resolve, reject) => {
         const fileName = `${moment().format('YYYYMMDD')}_${res.title}_${res.quality}.${res.format}`
 
@@ -105,7 +105,7 @@ findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5beb3cc5574fe
                 copyOpts.headers['Range'] = `bytes=0-${ctLength - 1}`;
                 copyOpts.headers['Connection'] = 'keep-alive';
 
-                const maxChunkLen = 3 * 1024 * 1024;
+                const maxChunkLen = 20 * 1024 * 1024;
                 const num = parseInt(ctLength / maxChunkLen);
                 const mod = parseInt(ctLength % maxChunkLen);
                 for (let i = 0; i < num; i++) {
