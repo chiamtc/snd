@@ -102,10 +102,10 @@ findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0
                 const copyOpts = _.cloneDeep(opts);
                 copyOpts.headers['Range'] = `bytes=0-${ctLength - 1}`;
                 copyOpts.headers['Connection'] = 'keep-alive';
-                console.log('ctLEngth',ctLength)
+                console.log('ctLEngth', ctLength)
                 let len = 0;
                 const rgs = [];
-                const maxChunkLen = 20*1024*1024;
+                const maxChunkLen = 20 * 1024 * 1024;
                 const num = parseInt(ctLength / maxChunkLen);
                 const mod = parseInt(ctLength % maxChunkLen);
                 for (let i = 0; i < num; i++) {
@@ -125,6 +125,51 @@ findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0
                 }
                 rgs[rgs.length - 1].end = rgs[rgs.length - 1].end - 1;
                 console.log(rgs)
+                const files = [];
+                let idx = 0;
+                for (const item of rgs) {
+                    const copyOpts = _.cloneDeep(opts);
+                    copyOpts.headers['Range'] = `bytes=${item.start}-${item.end}`;
+                    copyOpts.headers['Connection'] = 'keep-alive';
+
+                    const file = path.join(__dirname, `${res.key}${idx}`);
+                    files.push(file);
+                    console.log(`downloading the ${idx + 1}/${rgs.length} piece...`);
+
+                    try {
+                        const oneFile = await (new Promise((resolve, reject) => {
+                            request.get(copyOpts)
+                                .on('error', err => {
+                                    reject(err);
+                                })
+                                .pipe(fs.createWriteStream(file, {encoding: 'binary'}))
+                                .on('close', () => {
+                                    resolve(`file${idx} has been downloaded!`);
+                                });
+                        }));
+                        idx += 1;
+                    } catch (error) {
+                        return reject(error);
+                    }
+                    // console.log(oneFile);
+                }
+
+                console.log('all pieces have been downloaded!');
+                console.log('now, concat pieces...');
+                const ws = fs.createWriteStream(dst, {flags: 'a'});
+                files.forEach(file => {
+                    const bf = fs.readFileSync(file);
+                    ws.write(bf);
+                });
+                ws.end();
+
+                // delete temp files
+                console.log('now, delete pieces...');
+                files.forEach(file => {
+                    fs.unlinkSync(file);
+                });
+
+                return resolve(`${dst} has been downloaded!`);
                 /*return request.get(copyOpts)
                     .on('error', err => {
                         return reject(err);
