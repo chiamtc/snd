@@ -88,7 +88,8 @@ const findTitle = (bodyStr) => {
 
 let rgs = [];
 let obj;
-findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0').then((res) => {
+let finalDst = ''
+findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5beb3cc5574fe').then((res) => {
     const pm = new Promise((resolve, reject) => {
         const fileName = `${moment().format('YYYYMMDD')}_${res.title}_${res.quality}.${res.format}`
 
@@ -104,14 +105,14 @@ findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0
                 copyOpts.headers['Range'] = `bytes=0-${ctLength - 1}`;
                 copyOpts.headers['Connection'] = 'keep-alive';
 
-                const maxChunkLen = 20 * 1024 * 1024;
+                const maxChunkLen = 3 * 1024 * 1024;
                 const num = parseInt(ctLength / maxChunkLen);
                 const mod = parseInt(ctLength % maxChunkLen);
                 for (let i = 0; i < num; i++) {
                     const rg = {
                         start: i === 0 ? i : i * maxChunkLen + 1,
                         end: (i + 1) * maxChunkLen,
-                        chunk:i
+                        chunk: i
                     };
                     rgs.push(rg);
                 }
@@ -126,38 +127,37 @@ findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0
                 }
                 rgs[rgs.length - 1].end = rgs[rgs.length - 1].end - 1;
                 obj = res;
+                finalDst = dst;
+                const files = [];
+                let idx = 0;
+                console.log(rgs)
+                //1.child_process fork() each item and download it.
+                //2. callback to concat each file
+                //3. finally remove those pieces
+                let chunks = [];
+                for (let i = 0; i < rgs.length; i++) {
+                    const forked = fork('./src/load.js');
+                    forked.send({part: rgs[i], res: obj});
+
+                    forked.on('message', (chunk) => {
+                        chunks.push(chunk)
+                        if (chunks.length === rgs.length) {
+                            const b = _.sortBy(chunks, (e)=> e.chunk);
+                            const ws = fs.createWriteStream(finalDst, {flags: 'a'});
+                            b.forEach(file => {
+                                const bf = fs.readFileSync(file.chunkFile);
+                                ws.write(bf);
+                            });
+                            ws.end();
+                          /*  chunks.forEach(file => {
+                                fs.unlinkSync(file.chunkFile);
+                            });*/
+                        }
+                    })
+                }
                 return resolve(`${dst} has been downloaded!`);
             })
-    }).finally(() => {
-        const files = [];
-        let idx = 0;
-        console.log(rgs)
-        //1.child_process fork() each item and download it.
-        //2. callback to concat each file
-        //3. finally remove those pieces
-        for (let i = 0; i < rgs.length; i++) {
-            const forked = fork('./src/load.js');
-            forked.send({part: rgs[i], res:obj});
-
-            forked.on('message',(chunk)=>{
-                console.log('done right?',chunk)
-            })
-        }
-        /* console.log('all pieces have been downloaded!');
-         console.log('now, concat pieces...');
-         const ws = fs.createWriteStream(dst, {flags: 'a'});
-         files.forEach(file => {
-             const bf = fs.readFileSync(file);
-             ws.write(bf);
-         });
-         ws.end();
-
-         // delete temp files
-         console.log('now, delete pieces...');
-         files.forEach(file => {
-             fs.unlinkSync(file);
-         });*/
-    });
+    })
 });
 
 //TODO: not chunking
