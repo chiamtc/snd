@@ -5,6 +5,9 @@ import axios from 'axios';
 import cheerio from 'cheerio'
 import fs from 'fs';
 import path from 'path';
+import async from 'async'
+import {fork, spawn} from 'child_process'
+import cluster from 'cluster';
 
 const baseUrl = 'https://www.pornhub.com';
 const hds = {
@@ -19,7 +22,6 @@ const findDownloadInfo = (key) => {
     let finalKey = key;
     const pm = new Promise((resolve, reject) => {
         let pageUrl = `https://www.pornhub.com/view_video.php?viewkey=${key}`;
-        console.log(pageUrl)
         if (key.startsWith('http')) {
             pageUrl = key;
             finalKey = key.split('=').pop();
@@ -28,7 +30,6 @@ const findDownloadInfo = (key) => {
             url: pageUrl
         };
         Object.assign(opts, baseReqOpts);
-        console.log(opts)
         request(opts, (err, res, body) => {
             if (err) {
                 return reject(err);
@@ -63,7 +64,6 @@ const parseDownloadInfo = (bodyStr) => {
             break;
         }
     }
-    console.log(begin, end)
     if (begin >= 0 && end >= 0) {
         const jsonStr = bodyStr.substring(begin, end + 2);
         let arr = JSON.parse(jsonStr);
@@ -77,7 +77,6 @@ const parseDownloadInfo = (bodyStr) => {
     return info;
 };
 
-
 const findTitle = (bodyStr) => {
     const $ = cheerio.load(bodyStr);
     const title = $('.inlineFree').text();
@@ -86,9 +85,10 @@ const findTitle = (bodyStr) => {
 
     return arr.join('-');
 };
-findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0').then((res) => {
-    console.log('res', res)
 
+let rgs = [];
+let obj;
+findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0').then((res) => {
     const pm = new Promise((resolve, reject) => {
         const fileName = `${moment().format('YYYYMMDD')}_${res.title}_${res.quality}.${res.format}`
 
@@ -100,10 +100,94 @@ findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0
                 const resHeaders = resp.headers;
                 const ctLength = resHeaders['content-length'];
                 const copyOpts = _.cloneDeep(opts);
+                let len = 0;
                 copyOpts.headers['Range'] = `bytes=0-${ctLength - 1}`;
                 copyOpts.headers['Connection'] = 'keep-alive';
+
+                const maxChunkLen = 20 * 1024 * 1024;
+                const num = parseInt(ctLength / maxChunkLen);
+                const mod = parseInt(ctLength % maxChunkLen);
+                for (let i = 0; i < num; i++) {
+                    const rg = {
+                        start: i === 0 ? i : i * maxChunkLen + 1,
+                        end: (i + 1) * maxChunkLen,
+                        chunk:i
+                    };
+                    rgs.push(rg);
+                }
+
+                if (mod > 0) {
+                    const rg = {
+                        start: num * maxChunkLen + 1,
+                        end: ctLength,
+                        chunk: rgs.length
+                    };
+                    rgs.push(rg);
+                }
+                rgs[rgs.length - 1].end = rgs[rgs.length - 1].end - 1;
+                obj = res;
+                return resolve(`${dst} has been downloaded!`);
+            })
+    }).finally(() => {
+        const files = [];
+        let idx = 0;
+        console.log(rgs)
+        //1.child_process fork() each item and download it.
+        //2. callback to concat each file
+        //3. finally remove those pieces
+        for (let i = 0; i < rgs.length; i++) {
+            const forked = fork('./src/load.js');
+            forked.send({part: rgs[i], res:obj});
+
+            forked.on('message',(chunk)=>{
+                console.log('done right?',chunk)
+            })
+        }
+        /* console.log('all pieces have been downloaded!');
+         console.log('now, concat pieces...');
+         const ws = fs.createWriteStream(dst, {flags: 'a'});
+         files.forEach(file => {
+             const bf = fs.readFileSync(file);
+             ws.write(bf);
+         });
+         ws.end();
+
+         // delete temp files
+         console.log('now, delete pieces...');
+         files.forEach(file => {
+             fs.unlinkSync(file);
+         });*/
+    });
+});
+
+//TODO: not chunking
+/*return request.get(copyOpts)
+                   .on('error', err => {
+                       return reject(err);
+                   })
+                   .on('response', resp => {
+                       const ws = fs.createWriteStream(dst, {encoding: 'binary'});
+                       resp.on('error', err => {
+                           return reject(err);
+                       });
+                       resp.on('data', chunk => {
+                           ws.write(chunk);
+                           len += chunk.length;
+                           //  bar.showPer(len / ctLength);
+                       });
+                       resp.on('end', () => {
+                           ws.end();
+                           console.log();
+                           return resolve(`downloaded!`);
+                       });
+                   });*/
+
+//TODO: chunking
+/*
+ copyOpts.headers['Range'] = `bytes=0-${ctLength - 1}`;
+                copyOpts.headers['Connection'] = 'keep-alive';
                 console.log('ctLEngth', ctLength)
-                let len = 0;
+
                 const rgs = [];
                 const maxChunkLen = 20 * 1024 * 1024;
                 const num = parseInt(ctLength / maxChunkLen);
@@ -170,29 +254,9 @@ findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0
                 });
 
                 return resolve(`${dst} has been downloaded!`);
-                /*return request.get(copyOpts)
-                    .on('error', err => {
-                        return reject(err);
-                    })
-                    .on('response', resp => {
-                        const ws = fs.createWriteStream(dst, {encoding: 'binary'});
-                        resp.on('error', err => {
-                            return reject(err);
-                        });
-                        resp.on('data', chunk => {
-                            ws.write(chunk);
-                            len += chunk.length;
-                            //  bar.showPer(len / ctLength);
-                        });
-                        resp.on('end', () => {
-                            ws.end();
-                            console.log();
-                            return resolve(`downloaded!`);
-                        });
-                    });*/
-            })
-    });
-});
+
+ */
+
 /*const arr = [
     {
         defaultQuality: false,
