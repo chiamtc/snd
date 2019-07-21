@@ -88,7 +88,16 @@ const findTitle = (bodyStr) => {
 
 let rgs = [];
 let obj;
-let finalDst = ''
+let finalDst = '';
+
+let opts = {
+    url: 'https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0'
+};
+Object.assign(opts, baseReqOpts);
+request(opts,(err,res,body)=>{
+    console.log('res',res.headers)
+})
+/*
 findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0').then((res) => {
     const pm = new Promise((resolve, reject) => {
         const fileName = `${moment().format('YYYYMMDD')}_${res.title}_${res.quality}.${res.format}`
@@ -149,9 +158,9 @@ findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0
                                 ws.write(bf);
                             });
                             ws.end();
-                          /*  chunks.forEach(file => {
+                          /!*  chunks.forEach(file => {
                                 fs.unlinkSync(file.chunkFile);
-                            });*/
+                            });*!/
                         }
                     })
                 }
@@ -159,6 +168,7 @@ findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0
             })
     })
 });
+*/
 
 //TODO: not chunking
 /*return request.get(copyOpts)
