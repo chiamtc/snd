@@ -8,6 +8,7 @@ import path from 'path';
 import async from 'async'
 import {fork, spawn} from 'child_process'
 import cluster from 'cluster';
+const JSON5 = require('json5');
 
 const baseUrl = 'https://www.pornhub.com';
 const hds = {
@@ -117,10 +118,22 @@ request(opts, (err, res, body) => {
     }
     const jsonStr = body.substring(begin, end + 2);
     // console.log(jsonStr)
-    let arr = JSON.stringify(jsonStr);
+    let arr = JSON5.stringify(jsonStr);
     let getRidn= arr.replace(/\\n/g, '');
     let clean = getRidn.replace(/\\t/g, '');
-    console.log('cnea?', clean)
+    let quotes= clean.replace(/(\w+:)|(\w+ :)/g, function(matchedStr) {
+        return '\\"' + matchedStr.substring(0, matchedStr.length - 1) + '\\":';
+    });
+    // console.log('cnea?', clean)
+    // console.log('quote',quotes)
+    let reallyclean = JSON5.parse(quotes);
+    let reallyclean2 = reallyclean.substring(0, reallyclean.length - 1);
+    let reallyclean3 = JSON5.parse(reallyclean2);
+    console.log(typeof(reallyclean3))
+    console.log(reallyclean3.video_url)
+    // const jsonParse = JSON.parse(quotes.trim())
+    // console.log(jsonParse)
+    //const parsed = JSON.parse(jsonParse)
 })
 /*
 findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0').then((res) => {
