@@ -91,11 +91,36 @@ let obj;
 let finalDst = '';
 
 let opts = {
-    url: 'https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0'
+    url: 'https://www.porntrex.com/video/125985/gloryhole-faye#'
 };
+//look for exact keywords = 'flashvars' or 'video_url'
 Object.assign(opts, baseReqOpts);
-request(opts,(err,res,body)=>{
-    console.log('res',res.headers)
+request(opts, (err, res, body) => {
+    const idx = body.indexOf('flashvars =');
+    if (idx < 0) {
+        return info;
+    }
+    //console.log(bodyStr[116926],bodyStr[116927])
+    console.log('idx', idx)
+    let begin, end;
+
+    for (let i = idx; i < body.length; i++) {
+        const tmpStr = body.substr(i, 2);
+        if (tmpStr === ' {') {
+            begin = i;
+        }
+
+        if (tmpStr === '};') {
+            end = i;
+            break;
+        }
+    }
+    const jsonStr = body.substring(begin, end + 2);
+    // console.log(jsonStr)
+    let arr = JSON.stringify(jsonStr);
+    let getRidn= arr.replace(/\\n/g, '');
+    let clean = getRidn.replace(/\\t/g, '');
+    console.log('cnea?', clean)
 })
 /*
 findDownloadInfo('https://www.pornhub.com/view_video.php?viewkey=ph5a78e04e2e5d0').then((res) => {
