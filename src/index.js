@@ -121,7 +121,8 @@ request(opts, (err, res, body) => {
     let arr = JSON5.stringify(jsonStr);
     let getRidn= arr.replace(/\\n/g, '');
     let clean = getRidn.replace(/\\t/g, '');
-    let quotes= clean.replace(/(\w+:)|(\w+ :)/g, function(matchedStr) {
+    let quotes= clean.replace(/(\w+:)|(\w+ :)/g, (matchedStr)=> {
+        // return '\\"' + matchedStr.substring(0, matchedStr.length - 1) + '\\":';
         return '\\"' + matchedStr.substring(0, matchedStr.length - 1) + '\\":';
     });
     // console.log('cnea?', clean)
@@ -130,7 +131,8 @@ request(opts, (err, res, body) => {
     let reallyclean2 = reallyclean.substring(0, reallyclean.length - 1);
     let reallyclean3 = JSON5.parse(reallyclean2);
     console.log(typeof(reallyclean3))
-    console.log(reallyclean3.video_url)
+    const cleaners = reallyclean3.video_url.split('\"');
+    console.log(cleaners[1]+cleaners[2])
     // const jsonParse = JSON.parse(quotes.trim())
     // console.log(jsonParse)
     //const parsed = JSON.parse(jsonParse)
