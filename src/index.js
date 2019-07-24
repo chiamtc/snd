@@ -8,6 +8,7 @@ import path from 'path';
 import async from 'async'
 import {fork, spawn} from 'child_process'
 import cluster from 'cluster';
+
 const JSON5 = require('json5');
 
 const baseUrl = 'https://www.pornhub.com';
@@ -119,9 +120,9 @@ request(opts, (err, res, body) => {
     const jsonStr = body.substring(begin, end + 2);
     // console.log(jsonStr)
     let arr = JSON5.stringify(jsonStr);
-    let getRidn= arr.replace(/\\n/g, '');
+    let getRidn = arr.replace(/\\n/g, '');
     let clean = getRidn.replace(/\\t/g, '');
-    let quotes= clean.replace(/(\w+:)|(\w+ :)/g, (matchedStr)=> {
+    let quotes = clean.replace(/(\w+:)|(\w+ :)/g, (matchedStr) => {
         // return '\\"' + matchedStr.substring(0, matchedStr.length - 1) + '\\":';
         return '\\"' + matchedStr.substring(0, matchedStr.length - 1) + '\\":';
     });
@@ -132,7 +133,75 @@ request(opts, (err, res, body) => {
     let reallyclean3 = JSON5.parse(reallyclean2);
     console.log(typeof(reallyclean3))
     const cleaners = reallyclean3.video_url.split('\"');
-    console.log(cleaners[1]+cleaners[2])
+    const url = cleaners[1] + cleaners[2];
+    console.log('url', url)
+    const pm = new Promise((resolve, reject) => {
+        const fileName = `test.mp4`
+
+        const dst = path.join(__dirname, fileName);
+        const opts2 = {url: url};
+        Object.assign(opts2, baseReqOpts);
+        return request.get(opts2)
+            .on('response', async resp => {
+                const resHeaders = resp.headers;
+                const ctLength = resHeaders['content-length'];
+                const copyOpts = _.cloneDeep(opts2);
+                let len = 0;
+                copyOpts.headers['Range'] = `bytes=0-${ctLength - 1}`;
+                copyOpts.headers['Connection'] = 'keep-alive';
+
+                const maxChunkLen = 20 * 1024 * 1024;
+                const num = parseInt(ctLength / maxChunkLen);
+                const mod = parseInt(ctLength % maxChunkLen);
+                for (let i = 0; i < num; i++) {
+                    const rg = {
+                        start: i === 0 ? i : i * maxChunkLen + 1,
+                        end: (i + 1) * maxChunkLen,
+                        chunk: i
+                    };
+                    rgs.push(rg);
+                }
+
+                if (mod > 0) {
+                    const rg = {
+                        start: num * maxChunkLen + 1,
+                        end: ctLength,
+                        chunk: rgs.length
+                    };
+                    rgs.push(rg);
+                }
+                rgs[rgs.length - 1].end = rgs[rgs.length - 1].end - 1;
+                obj = url;
+                finalDst = dst;
+                const files = [];
+                let idx = 0;
+                //1.child_process fork() each item and download it.
+                //2. callback to concat each file
+                //3. finally remove those pieces
+                let chunks = [];
+                for (let i = 0; i < rgs.length; i++) {
+                    const forked = fork('./src/load.js');
+                    forked.send({part: rgs[i], res: obj});
+
+                    forked.on('message', (chunk) => {
+                        chunks.push(chunk)
+                        if (chunks.length === rgs.length) {
+                            const b = _.sortBy(chunks, (e) => e.chunk);
+                            const ws = fs.createWriteStream(finalDst, {flags: 'a'});
+                            b.forEach(file => {
+                                const bf = fs.readFileSync(file.chunkFile);
+                                ws.write(bf);
+                            });
+                            ws.end();
+                            /*  chunks.forEach(file => {
+                            fs.unlinkSync(file.chunkFile);
+                        });*/
+                        }
+                    })
+                }
+                return resolve(`${dst} has been downloaded!`);
+            })
+    })
     // const jsonParse = JSON.parse(quotes.trim())
     // console.log(jsonParse)
     //const parsed = JSON.parse(jsonParse)
